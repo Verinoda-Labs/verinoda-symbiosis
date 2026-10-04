@@ -55,6 +55,46 @@ So neither mode is a measured win on real code: **nudge** trades input tokens fo
 **search** costs facts. Both stay off until the person turns one on. What the mod adds regardless of the mode is
 an index that stays fresh while Claude edits, and commit reviews.
 
+## Installing it so it loads in every session
+
+`--plugin-dir` loads the mod for one run only. To have it load without a flag, install it from a local marketplace.
+
+**From a clone of this repository.** The repository root holds `.claude-plugin/marketplace.json`, which points at this folder:
+
+```
+claude plugin marketplace add <path to this repository>
+claude plugin install verinoda-live@verinoda --scope project   # run inside a project that has a .verinoda index
+claude plugin install verinoda-live@verinoda --scope user      # or: every project, indexed or not
+```
+
+**From a copy of this folder on its own** (no repository around it). Add `.claude-plugin/marketplace.json` beside
+`plugin.json` and make the plugin its own marketplace:
+
+```json
+{
+  "name": "verinoda",
+  "owner": { "name": "Verinoda" },
+  "metadata": { "description": "Verinoda Claude Code mod." },
+  "plugins": [{ "name": "verinoda-live", "source": "./", "description": "Verinoda in Claude Code." }]
+}
+```
+
+then `claude plugin marketplace add <path to the folder>` and the same `install` line. Do not keep both marketplaces
+registered: they share the name `verinoda`.
+
+Then run `/plugin configure verinoda-live@verinoda` in Claude Code: the install reports the six `userConfig` options as not set.
+`claude plugin validate <folder>` checks a manifest first.
+
+- Prefer `--scope project` in projects that have an index. The mod looks for `.verinoda` from the folder the session starts
+  in, and `$.store` is one file shared by every session that loads the mod (see `AGENTS.md`), so the fewer sessions load it
+  the fewer can leak a choice into one that did not ask.
+- Measured: both manifests pass `claude plugin validate`, and `marketplace add`, `install` and `plugin list` succeeded on
+  Linux for both layouts (Claude Code 2.1.289). Not measured: Windows, and that the installed copy hot-reloads after an edit
+  of `register.tsx`.
+- Not measured: `--plugin-dir` and an installed mod of the same name in one session. It may load twice. While developing
+  with `--plugin-dir`, run `claude plugin disable verinoda-live@verinoda`.
+- A copy of this folder is not updated when the repository changes; copy it again.
+
 ## Developing it
 
 The live copy Claude Code hot-reloads is the session's dev-mods folder; this folder is its versioned source. Load it
