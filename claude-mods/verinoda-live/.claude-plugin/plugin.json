@@ -1,6 +1,6 @@
 {
   "name": "verinoda-live",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Verinoda in Claude Code: keeps the code index fresh while Claude edits, checks each edit for names that do not exist, reviews commits, and shows it all in a Turkish pane with an animated mascot.",
   "types": "./types/index.d.ts",
   "userConfig": {
@@ -44,6 +44,12 @@
       "title": "Answer language",
       "description": "The language Claude answers in and offers its final options in: auto (the language the person writes in), tr, en, or any language by name (Deutsch, Español ...). A choice made in the pane or with /verinoda-lang is kept and wins.",
       "default": "auto"
+    },
+    "improveOffer": {
+      "type": "boolean",
+      "title": "Offer the improvement list",
+      "description": "When a request says \"better\" or \"nicer\" without saying what, Claude offers the improvement list instead of guessing. Off: the list comes only with /verinoda-improve.",
+      "default": false
     },
     "motion": {
       "type": "boolean",

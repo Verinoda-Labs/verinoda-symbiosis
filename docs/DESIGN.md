@@ -17140,6 +17140,59 @@ not in `CORE_DIRECT`: listing it would add standing context to every request.
 `tests/test_locate.py` (signals on temporary git repositories, the command line, the worker) and
 `tests/test_locate_daemon.py` (routes, token, idle end, a real detached start and stop).
 
+## 148. The improvement checklist pane (D175, 2026-10-04)
+
+### 148.1 Why
+
+People ask a model to make something "better", "nicer" or "of higher quality" without saying what should change. A model
+that guesses changes what nobody asked for; one that asks open questions tires the person. The pane turns the request
+into a list the person can recognise their wish in: the model looks and changes nothing, the pane shows what could change
+in three groups, the person marks what to apply, keep or check first, and only then does the model work. The brief is
+`claude-mods/verinoda-live/IMPROVE-PANE.md` (step 1 of backlog 13.9); this section is what was built and what the host
+turned out to allow.
+
+### 148.2 Decisions
+
+- The trigger is the command `/verinoda-improve [what to look at]`; the model never opens the list on its own. The
+  setting `improveOffer` (off) only adds one line to the system prompt that offers the command.
+- Two tools for the model, `improve_propose` (a ranked list, validated, nothing stored on a failure) and `improve_report`
+  (one outcome per item sent). Nothing is selected at the start; an item without a decision is "not decided", never
+  rejected and never sent. A suspicion is not a fact: a problem without evidence says so on its row, an unseen matter of
+  taste says it is a guess, and "check first" asks for an investigation, not a change.
+- The state is one session value (`improve`, `phase` idle, reviewing, choosing or sent). Which turn is the mod's own is
+  settled by the text of the prompt it just submitted (`turn.start`), and only the newest prompt's turn is tracked; a
+  turn that ends with items still waiting turns them into "result not reported" and the pane offers to ask again.
+- The pure part is `hooks/improve.ts` (validation, decisions, first sight, report, prompts, tool specs, words), the wiring
+  and the drawing are `hooks/improve-pane.tsx`, called by `register.tsx`.
+- **What the host allowed**, found while building and not in the brief: a plugin has one hooks module, and the engine
+  follows `$` only within one file, so the wiring is a function of its own that `register.tsx` calls with `on`; two hooks of
+  one event with no matcher in one module are refused, so `session.start`, `prompt.compose` and `turn.complete` carry a
+  matcher that every call satisfies; a prompt raised from inside a `command.run` hook is refused ("it would wait on the turn
+  this hook is holding"), so the review is asked for 50 ms after the hook has returned; on `mobile` the table names an
+  `Input` that draws nothing, so the surface decides, not the table (the same mistake was in the answer-language row and is
+  fixed there).
+
+### 148.3 Measured
+
+The tests: 33 in `improve.test.ts` (the pure parts, the command, both tools, the three prompts, the mod's own turns, a
+prompt the engine did not take, the setting, the surfaces and a 30-column pane). The mod's earlier tests still pass but
+one, "the project is found from a subfolder", which fails on a clean checkout of this branch as well (its cause was not
+examined; `AGENTS.md` says all passed on the Windows machine). **No real
+session was run.** Not measured: whether the model calls `improve_propose` after the review prompt and keeps to "change
+nothing", whether it reports with `improve_report`, how the pane feels in a terminal (focus, scrolling, 20 items at 40
+columns), whether the 50 ms delay is what the real host needs, and what the review and a "check first" cost in time and
+tokens.
+
+### 148.4 Not done
+
+Step 2 (single-choice groups, items nested under an outcome, a free-text redirection that redoes the list, warnings about
+conflicting items) and the later steps (previews and a screenshot loop for looks, a remembered "keep"). Nothing is written
+to the store and no Verinoda command is called.
+
+### 148.5 Tests
+
+`claude-mods/verinoda-live/hooks/improve.test.ts`.
+
 ## Sources
 
 - **Retrieval:**

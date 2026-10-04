@@ -8,6 +8,8 @@ import {
 } from './assist'
 import type { Features, Located } from './assist'
 import { asLanguage, LANG_AUTO, LANG_ENGLISH, LANG_TURKISH, languageCommand, languageLabel, languageNote, nextLanguage } from './language'
+import { isOwnPrompt } from './improve'
+import { registerImprove } from './improve-pane'
 import { frameRows, MASCOT_HEIGHT, MASCOT_WIDTH } from './mascot'
 import type { MascotProps, Mood } from './mascot'
 
@@ -862,6 +864,7 @@ export function rowsOf(text: string, columns: number): number {
 }
 
 export const register: Register = (on, options) => {
+  registerImprove(on, options)
   on('session.start', async ($, e, next) => {
     live.cwd = await $.session.cwd()
     cfg.auto = asMode(options.auto)
@@ -985,6 +988,8 @@ export const register: Register = (on, options) => {
 
   // A code question typed in the project gets the nudge (or, in search mode, Verinoda's results) as context.
   on('prompt.submit', async ($, e, next) => {
+    // the mod's own prompts (the improvement list's review, selection and report) carry the person's decision: no task, no context, no note
+    if (isOwnPrompt(e.origin)) return next(e)
     const isUser = isPersonsPrompt(e.origin)
     if (isUser) startTask(e.text)
     // the language reaches every prompt of the person, in or out of a project, but only when it changed (a command or a
@@ -1075,7 +1080,7 @@ export const register: Register = (on, options) => {
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const elements = $.ui.resolve(e)
     const { Box, Button, Text } = elements
-    const Input = 'Input' in elements ? elements.Input : undefined // a surface without one (mobile) draws the buttons only
+    const Input = e.surface !== 'mobile' && 'Input' in elements ? elements.Input : undefined // mobile draws the buttons only: its table's Input draws nothing
     const lang = await read($, language)
     const s = await read($, idx)
     const said = await read($, notice)

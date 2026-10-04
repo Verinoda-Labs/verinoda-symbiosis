@@ -25,7 +25,7 @@ always migrated forward, never silently reset.
 | Exact names, one build at a time, fresh index (D37) | Nothing to migrate. `receiver_calls.json` v2 is recomputed on the first load (its per-file facts are reused); `.verinoda/index/fresh_ignored.json` changed format (v2), and an older one is ignored and rewritten. Output and exit-code changes are listed below. |
 | Upstream (Graphify) base | Maintainers only: `python tools/port_upstream.py <graphify-checkout-at-new-commit>`, review the diff, run `pytest tests` and `pytest tests_upstream`, update `docs/UPSTREAM.md` (commit, test table, inventory). Check that `index.install_path_identity_memo()` still finds `watch._StoredSourcePaths` (`tests/test_index.py` covers it). |
 
-## Upgrading from 0.4.0 (D137-D174)
+## Upgrading from 0.4.0 (D137-D175)
 
 ### D137: Trigram regex index
 
@@ -497,6 +497,17 @@ per-repository background process (`verinoda/locate_daemon.py`) that keeps the g
 127.0.0.1 only, asks for a random token kept in `.verinoda/locate-daemon.json` (with `.verinoda/locate-daemon.log`;
 both disposable), and ends by itself after 10 minutes without a request. `--json` carries the compact text a model
 reads as `text`.
+
+### D175: The improvement checklist pane
+
+`verinoda-live` 0.6.0 (the Claude Code mod, `claude-mods/verinoda-live`) adds `/verinoda-improve [what to look at]`: Claude looks
+and changes nothing, a pane lists what could change in three groups, you mark apply, keep or check first, and only then
+does Claude work on what you chose and report each outcome. A new setting, `improveOffer` (off), lets Claude offer the
+command in one line when a request says "better" without saying what. Nothing else changes; the Python package is not
+touched. Reload the mod (a new session, or `claude plugin` reinstall) to get it. The 0.6.0 mod also adds an answer-language
+choice (`/verinoda-lang`, the pane's "Cevap dili" row, the `language` setting) and a marketplace manifest
+(`.claude-plugin/marketplace.json`) so the mod can be installed once and load in every session. No real session was run
+for the checklist pane.
 
 ## Upgrading from 0.3.2 (D60-D136)
 
