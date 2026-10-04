@@ -31,6 +31,8 @@ exactly what the evidence supports.
 - Writing or editing Python code: check that the names it uses exist (see below).
 - Java / Minecraft mods: `when <Class.method>` (events and conditions that lead to it), `trace-log <log>`,
   `datapack`, `shader <Block.field>` / `--check`, `backlog <id|File.java:LINE>`; `check`/`api` cover Java.
+- Only when the user explicitly asks for improvement options: look, change nothing, `verinoda improve propose` (MCP
+  `improve_propose`); print its text as written, pass the reply line unchanged to `improve decide`, then `improve report`.
 
 Pure code-writing: skip the question workflow; the name check, debug ledger and `decide check --changed` apply.
 

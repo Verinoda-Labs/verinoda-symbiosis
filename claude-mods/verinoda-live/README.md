@@ -14,6 +14,8 @@ PATH) by itself; `/config` overrides both (`root`, `cli`, `python`) and turns th
 | Auto-context (`/verinoda-auto nudge\|search\|off`) | On a code question the person types in a session started inside `ROOT`: **nudge** attaches an instruction to start with `verinoda analyze` (nothing runs before the prompt); **search** runs `verinoda query` on the prompt (filter syntax taken apart) and attaches its passages. The `auto` setting (`/config`, or `pluginConfigs` in the settings of a scripted session) is the mode a session starts in; a choice made with `/verinoda-auto` is kept and wins, except in a scripted session (`claude -p`, the Agent SDK), which does not read what was chosen in a terminal (the store is shared by every session that loads the mod and rewritten by each at its end) and takes the settings as given. The prompt of a `claude -p` / Agent SDK run counts as the person's. A nudge goes with any code question up to 20,000 characters (a pasted bug report is one); a search is only for prompts up to 2,000. | off |
 | Check after edits (`/verinoda-check on\|off`) | After each Edit / Write of a Python, Java or Kotlin file inside `ROOT`, `verinoda check --diff` (falling back to the file itself without git) reads the changed lines; names on them that do not exist in the project or its environment are told to the model with the edit's result (as a PostToolUse note), with the nearest real names. The session start warms the checker (its first run in an environment builds a name index, about 90 s); a cached check takes about 3 s, never more than 60 s, and never fails the edit. The pane shows the last check (`k` toggles). | on |
 | Review after commits (`/verinoda-guard on\|off`) | When a Bash or PowerShell command moved the project's `HEAD` (read before and after), `verinoda review --base HEAD~1` runs in the background and a toast gives its risk and findings; a commit made while one runs is reviewed after it. | off |
+| Answer language (`/verinoda-lang auto\|tr\|en\|<a language>`, or the pane's **Cevap dili**) | Tells Claude, once when the language changes and at the session's first prompt, to write its answer in that language and to offer its final options in it too; code, commands and paths stay as they are. **auto** says nothing: Claude follows the language the person writes in, or the one named in the first question. Turkish and English have buttons (`l` walks auto, Turkish, English); any other language is typed into the pane's field (not on mobile) or given to the command, and is cut to one short line of letters before it goes into the line the model reads. It applies to every prompt of the person, in a project or not. The pane's own words stay Turkish. Not measured: whether the instruction survives a `/compact` (run `/verinoda-lang <language>` again to say it once more), and how well a model keeps to a language over a long session. | auto |
+| Improvement list (`/verinoda-improve [what to look at]`, setting `improveOffer`) | For a vague request ("make this better"), on your command only: Claude looks and **changes nothing**, and the `İyileştirme` pane lists what could change in three groups (possible problems with `file:line` evidence, functional improvements, matters of taste: a guess unless a rendered view was looked at). The seven best-ranked show and each group's rest folds; nothing is selected. A row opens its details (what is there, why it may matter, the change, its cost, the evidence); mark it **apply**, **keep** or, for a possible problem, **check first** (investigate, change nothing, come back with a fix to choose); an item without a decision is "not decided", never rejected. Add your own items (not on mobile); `g` sends. Only the decided items go to Claude, which reports each outcome with `improve_report` (applied, partly, failed, looked at and not confirmed) and lists every change that was not on the list; `Sonucu iste` asks again for one that was not reported, `Beklemeyi bırak` stops waiting. Nothing runs in a scripted session. With `improveOffer` on, Claude offers the command in one line when a request says "better" without saying what. Not measured: a real session (whether the model calls the tools and changes nothing until you choose, how the pane reads in a terminal, what a review costs in time and tokens). The host refuses a prompt raised inside a command's hook, so the review prompt goes 50 ms after the command returns: seen in the test host, not tried in a real session. | off |
 | Where a change belongs (`/verinoda-assist off\|inject\|tool\|full\|strict`, or a list of `inject, coupled, tool, prompt, gate`) | Ways to put what `verinoda locate` and `verinoda coupled` know (the files a change touches besides the first one an agent finds: what changes together with them in the git history, same-stem partners, same-name twins, imports) in front of the agent, each its own feature. **inject** adds the located files to a code question (the agent is not asked to call anything). **coupled** adds to the result of each source file the agent opens (at most 6 files per session) the files that change together with it. **tool** registers `locate` and `coupled` as tools, listed in front of the model (`tool.describe` with `isDeferred: false`: a plugin's tool is otherwise behind ToolSearch, which the agent studies never saw it use) and **prompt** adds a paragraph to the system prompt. **gate** answers the first search of a task (Grep, Glob, or grep, rg, find in a shell) with the located files instead of running it; the agent searches again if it still wants to. Presets: `inject`; `tool` (tool, prompt); `full` (coupled, tool, prompt); `strict` (full, gate). A daemon keeps the graph loaded (`verinoda locate --daemon`, started at session start; the commands the mod runs ask it by themselves); without one, or with a Verinoda that has none, every lookup is a command that loads the graph itself. The `assist` setting is where a session starts; a choice made with `/verinoda-assist` is kept and wins. Whether any of this raises the files an agent finds is measured in `benchmarks/agent_compare/DESIGN_ASSIST.md` (the pre-registration) and the results next to it. | off |
 | `/verinoda-panel` pane | In Turkish (technical nouns kept): the index state as glyph + words + colour with the one action that applies (`u`), the last commit review with its risk band and a 2-line summary (`d` for the rest), auto-context as a fixed three-way control (`1`-`3`) and commit review as a two-way control (`r`), and a purple Claude mascot with glasses in the room left over, animated like Claude Code's own (it blinks and shuffles its feet; while Verinoda works it reads, a glint sweeping its lenses; `hooks/mascot.tsx`, drawn by the surface as a `Client`, so frames repaint only its region; still on surfaces without `Client`) (hidden inline, below 24 columns or when the content needs the rows). | - |
 
@@ -55,6 +57,46 @@ So neither mode is a measured win on real code: **nudge** trades input tokens fo
 **search** costs facts. Both stay off until the person turns one on. What the mod adds regardless of the mode is
 an index that stays fresh while Claude edits, and commit reviews.
 
+## Installing it so it loads in every session
+
+`--plugin-dir` loads the mod for one run only. To have it load without a flag, install it from a local marketplace.
+
+**From a clone of this repository.** The repository root holds `.claude-plugin/marketplace.json`, which points at this folder:
+
+```
+claude plugin marketplace add <path to this repository>
+claude plugin install verinoda-live@verinoda --scope project   # run inside a project that has a .verinoda index
+claude plugin install verinoda-live@verinoda --scope user      # or: every project, indexed or not
+```
+
+**From a copy of this folder on its own** (no repository around it). Add `.claude-plugin/marketplace.json` beside
+`plugin.json` and make the plugin its own marketplace:
+
+```json
+{
+  "name": "verinoda",
+  "owner": { "name": "Verinoda" },
+  "metadata": { "description": "Verinoda Claude Code mod." },
+  "plugins": [{ "name": "verinoda-live", "source": "./", "description": "Verinoda in Claude Code." }]
+}
+```
+
+then `claude plugin marketplace add <path to the folder>` and the same `install` line. Do not keep both marketplaces
+registered: they share the name `verinoda`.
+
+Then run `/plugin configure verinoda-live@verinoda` in Claude Code: the install reports the six `userConfig` options as not set.
+`claude plugin validate <folder>` checks a manifest first.
+
+- Prefer `--scope project` in projects that have an index. The mod looks for `.verinoda` from the folder the session starts
+  in, and `$.store` is one file shared by every session that loads the mod (see `AGENTS.md`), so the fewer sessions load it
+  the fewer can leak a choice into one that did not ask.
+- Measured: both manifests pass `claude plugin validate`, and `marketplace add`, `install` and `plugin list` succeeded on
+  Linux for both layouts (Claude Code 2.1.289). Not measured: Windows, and that the installed copy hot-reloads after an edit
+  of `register.tsx`.
+- Not measured: `--plugin-dir` and an installed mod of the same name in one session. It may load twice. While developing
+  with `--plugin-dir`, run `claude plugin disable verinoda-live@verinoda`.
+- A copy of this folder is not updated when the repository changes; copy it again.
+
 ## Developing it
 
 The live copy Claude Code hot-reloads is the session's dev-mods folder; this folder is its versioned source. Load it
@@ -63,7 +105,7 @@ from here in a terminal with `claude --plugin-dir <this repository>/claude-mods/
 - `claude plugin validate <folder>`: what the module hooks and calls, and anything the engine would refuse.
 - `claude plugin test <folder>`: `hooks/register.test.ts` (re-index and graph watcher) and `hooks/features.test.ts`
   (question heuristic, prompt origins, the three modes, commit review, robustness, the pane on terminal and desktop).
-  `hooks/assist.test.ts` holds the assist features (presets, the tools and their placement, inject, the note on a file
+  `hooks/improve.test.ts` holds the improvement list (the pure parts, the command, the tools, the pane on three surfaces); `hooks/improve.ts` is its pure part. `hooks/assist.test.ts` holds the assist features (presets, the tools and their placement, inject, the note on a file
   read, the gate, the daemon and its fallback, `/verinoda-assist`); `hooks/assist.ts` is their pure part.
 - Type-check: after the engine has loaded the mod once it writes `.claude-plugin/types/` and a `tsconfig.json`;
   then `tsc -p <folder>`. Both are generated and not kept here.
