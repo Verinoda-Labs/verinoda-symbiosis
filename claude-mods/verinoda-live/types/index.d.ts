@@ -81,6 +81,7 @@ declare module 'claude-code' {
       reviewing: string | null // the short sha of the commit under review
       expanded: boolean // the review summary shown whole
       assist: string // the assist setting: a preset (off, inject, tool, full, strict) or a list of features
+      language: string // what Claude answers in: auto (the language the person writes in), Turkish, English or a name typed in
     }
   }
 }

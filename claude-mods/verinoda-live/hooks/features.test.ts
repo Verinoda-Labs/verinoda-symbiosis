@@ -443,6 +443,100 @@ describe('pane', () => {
     expect(await pane.find({ text: /çıkış 1: locked/ })).toBeDefined()
     expect((await pane.find({ key: 'update' }))?.props.label).toBe('Tekrar dene')
     expect(flat(await pane.drawn({ in: 'mascot-client' }))).toContain('Bir şey ters gitti')
-    expect(await pane.find({ text: /^u güncelle · 1-3 bağlam · r inceleme · k kontrol$/ })).toBeDefined()
+    expect(await pane.find({ text: /^u güncelle · 1-3 bağlam · r inceleme · k kontrol · l dil$/ })).toBeDefined()
+  })
+})
+
+describe('answer language', () => {
+  const MOUNT = (surface: 'terminal' | 'mobile', placement = 'dock') => ({
+    plugin: 'verinoda-live', surface, component: 'Pane', requestId: 'verinoda',
+    props: { title: 'Verinoda', isFocused: true, bodyColumns: 48, placement, scroll: { offset: 0, bodyRows: 60 } } as never,
+  }) as never
+
+  test('off by default: nothing is added to a prompt', async ($, on) => {
+    mock.clock(on)
+    mock.store(on)
+    world(on)
+    await $.session.start(START)
+    expect((await $.prompt.submit(ask('Hallo, wie geht es dir heute?'))).context ?? []).toEqual([])
+  })
+
+  test('a language is told to the model once, then again only when it changes, and taken back with auto', async ($, on) => {
+    mock.clock(on)
+    mock.store(on)
+    world(on)
+    await $.session.start(START)
+    await $.command.run({ ...run('Deutsch'), command: 'verinoda-lang' } as never)
+    const first = await $.prompt.submit(ask('Refactor the scanner to use a pool'))
+    expect(first.context?.length).toBe(1)
+    expect(first.context?.[0]).toContain('answers in Deutsch')
+    expect((await $.prompt.submit(ask('And the tests?'))).context ?? []).toEqual([])
+    await $.command.run({ ...run('en'), command: 'verinoda-lang' } as never)
+    expect((await $.prompt.submit(ask('And the docs?'))).context?.[0]).toContain('answers in English')
+    await $.command.run({ ...run('auto'), command: 'verinoda-lang' } as never)
+    expect((await $.prompt.submit(ask('Anything else?'))).context?.[0]).toContain('no longer applies')
+    // the same language again is a request to tell the model again
+    await $.command.run({ ...run('Deutsch'), command: 'verinoda-lang' } as never)
+    await $.command.run({ ...run('Deutsch'), command: 'verinoda-lang' } as never)
+    expect((await $.prompt.submit(ask('One more'))).context?.length).toBe(1)
+  })
+
+  test('only the person is asked in a language, and a slash prompt is not a message', async ($, on) => {
+    mock.clock(on)
+    mock.store(on, { language: 'Deutsch' })
+    world(on)
+    await $.session.start(START)
+    expect((await $.prompt.submit(ask('hello', { kind: 'plugin', name: 'other' }))).context ?? []).toEqual([])
+    expect((await $.prompt.submit(ask('/verinoda-panel'))).context ?? []).toEqual([])
+    expect((await $.prompt.submit(ask('hello'))).context?.[0]).toContain('answers in Deutsch')
+  })
+
+  test('it rides beside a code question\'s own context, and outside a project too', async ($, on) => {
+    mock.clock(on)
+    mock.store(on, { auto: 'nudge', language: 'Español' })
+    world(on)
+    await $.session.start(START)
+    const res = await $.prompt.submit(ask(QUESTION))
+    expect(res.context?.length).toBe(2)
+    expect(res.context?.join('\n')).toContain('answers in Español')
+    expect(res.context?.join('\n')).toContain('start by running')
+  })
+
+  test('the setting starts it, a stored choice wins, and a scripted session reads no stored choice', async ($, on) => {
+    mock.clock(on)
+    mock.store(on, { language: 'English' })
+    world(on)
+    await $.session.start({ ...(START as object), isInteractive: false } as never)
+    expect((await $.prompt.submit(ask('hello'))).context ?? []).toEqual([]) // setting: auto
+  })
+
+  test('the pane picks one of three, takes a typed language and the hotkey walks on', async ($, on) => {
+    const clock = mock.clock(on)
+    mock.store(on)
+    world(on)
+    await $.session.start(START)
+    await clock.settle()
+    const pane = await $.ui.mount(MOUNT('terminal'))
+    expect((await pane.find({ key: 'lang-auto' }))?.props.label).toBe('● Otomatik')
+    expect((await pane.find({ key: 'lang-Turkish' }))?.props.hotkey).toBe('l')
+    await $.ui.press({ plugin: 'verinoda-live', key: 'lang-English' })
+    expect((await pane.find({ key: 'lang-English' }))?.props.label).toBe('● English')
+    expect((await pane.find({ key: 'lang-auto' }))?.props.hotkey).toBe('l')
+    expect(await $.command.run({ ...run(), command: 'verinoda-lang' } as never)).toEqual(expect.objectContaining({ text: expect.stringContaining('English') }))
+    await $.ui.input({ plugin: 'verinoda-live', key: 'lang-input', text: 'Deutsch' })
+    expect((await pane.find({ key: 'lang-typed' }))?.props.label).toBe('● Deutsch')
+    expect(await pane.find({ text: /Claude Deutsch dilinde cevap verir/ })).toBeDefined()
+    expect((await $.prompt.submit(ask('hello'))).context?.[0]).toContain('answers in Deutsch')
+  })
+
+  test('mobile draws the buttons without an Input', async ($, on) => {
+    const clock = mock.clock(on)
+    mock.store(on)
+    world(on)
+    await $.session.start({ ...(START as object), surface: 'mobile' } as never)
+    await clock.settle()
+    const pane = await $.ui.mount(MOUNT('mobile'))
+    expect(await pane.find({ key: 'lang-English' })).toBeDefined()
+    expect(await pane.find({ key: 'lang-input' })).toBeUndefined()
   })
 })

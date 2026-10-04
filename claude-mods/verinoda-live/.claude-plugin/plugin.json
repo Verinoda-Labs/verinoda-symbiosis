@@ -39,6 +39,12 @@
       "description": "Help with finding every file a change touches, before anything is chosen with /verinoda-assist. Presets: off; inject (the located files go in with the prompt); tool (locate and coupled tools, first-class, and a line in the system prompt); full (tool, and a note of what changes together with each source file the agent opens); strict (full, and the first search of a task is answered with the located files). Or a comma list of inject, coupled, tool, prompt, gate. A choice made with /verinoda-assist is kept and wins.",
       "default": "off"
     },
+    "language": {
+      "type": "string",
+      "title": "Answer language",
+      "description": "The language Claude answers in and offers its final options in: auto (the language the person writes in), tr, en, or any language by name (Deutsch, Español ...). A choice made in the pane or with /verinoda-lang is kept and wins.",
+      "default": "auto"
+    },
     "motion": {
       "type": "boolean",
       "title": "Animated mascot",
