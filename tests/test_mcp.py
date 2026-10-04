@@ -48,6 +48,10 @@ EXPECTED_PARAMS = {
     "project_query": ({"question", "max_items", "format"}, {"question"}),
     "locate": ({"text", "anchors", "max_files", "format"}, {"text"}),
     "coupled": ({"files", "max_files", "format"}, {"files"}),
+    "improve_propose": ({"subject", "items"}, {"subject", "items"}),
+    "improve_decide": ({"text"}, {"text"}),
+    "improve_show": (set(), set()),
+    "improve_report": ({"outcomes", "extra_changes"}, {"outcomes"}),
     "grep_context": ({"pattern", "path", "command"}, set()),
     "read_context": ({"file_path"}, {"file_path"}),
     "node_inspect": ({"name"}, {"name"}),
@@ -106,7 +110,7 @@ EXPECTED_PARAMS = {
 READ_ONLY = {"project_query", "locate", "coupled", "node_inspect", "relation_trace", "run_when", "history_search", "map_view",
              "claim_inspect", "claim_list", "evidence_inspect", "question_plan_draft", "lexicon_show", "resolve_call",
              "code_check", "api_members", "debug_status", "grep_context", "dependency_ask", "read_context", "tq",
-             "list_projects", "index_status", "group_view"}
+             "list_projects", "index_status", "group_view", "improve_show"}
 
 
 # -- fixtures & helpers -----------------------------------------------------------
@@ -242,6 +246,11 @@ def _all_calls(t: AtlasTools) -> dict:
         "project_query": lambda: t.project_query("where is the order saved?"),
         "locate": lambda: t.locate("the order is not saved"),
         "coupled": lambda: t.coupled(["app.py"]),
+        "improve_propose": lambda: t.improve_propose("app.py", [{"id": "i1", "group": "problem", "title": "t", "observation": "o",
+                                                                 "why": "w", "change": "c"}]),
+        "improve_decide": lambda: t.improve_decide("1u"),
+        "improve_show": lambda: t.improve_show(),
+        "improve_report": lambda: t.improve_report([{"id": "i1", "status": "applied", "note": "n"}]),
         "node_inspect": lambda: t.node_inspect("place_order"),
         "tq": lambda: t.tq(["exists place_order"]),
         "relation_trace": lambda: t.relation_trace("a", "b"),

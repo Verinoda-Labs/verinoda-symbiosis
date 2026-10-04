@@ -25,7 +25,7 @@ always migrated forward, never silently reset.
 | Exact names, one build at a time, fresh index (D37) | Nothing to migrate. `receiver_calls.json` v2 is recomputed on the first load (its per-file facts are reused); `.verinoda/index/fresh_ignored.json` changed format (v2), and an older one is ignored and rewritten. Output and exit-code changes are listed below. |
 | Upstream (Graphify) base | Maintainers only: `python tools/port_upstream.py <graphify-checkout-at-new-commit>`, review the diff, run `pytest tests` and `pytest tests_upstream`, update `docs/UPSTREAM.md` (commit, test table, inventory). Check that `index.install_path_identity_memo()` still finds `watch._StoredSourcePaths` (`tests/test_index.py` covers it). |
 
-## Upgrading from 0.4.0 (D137-D175)
+## Upgrading from 0.4.0 (D137-D176)
 
 ### D137: Trigram regex index
 
@@ -491,7 +491,7 @@ and later updates say in `incremental` whether they patched and, if not, why. `t
 
 New commands `verinoda locate "<issue text>"` and `verinoda coupled FILE...` (`verinoda/locate.py`): the files a
 change touches besides the first one an agent finds. Two new MCP tools, `locate` and `coupled`, in the core profile
-behind `run_tool` (46 tools; the core menu grew from 4,426 to 4,563 characters on examples/orders_app). No schema
+behind `run_tool` (50 tools; the core menu grew from 4,426 to 4,563 characters on examples/orders_app). No schema
 change. `locate` needs the graph (`verinoda update`); `coupled` does not. `locate --daemon start|stop|status` runs a
 per-repository background process (`verinoda/locate_daemon.py`) that keeps the graph loaded: it listens on
 127.0.0.1 only, asks for a random token kept in `.verinoda/locate-daemon.json` (with `.verinoda/locate-daemon.log`;
@@ -508,6 +508,17 @@ touched. Reload the mod (a new session, or `claude plugin` reinstall) to get it.
 choice (`/verinoda-lang`, the pane's "Cevap dili" row, the `language` setting) and a marketplace manifest
 (`.claude-plugin/marketplace.json`) so the mod can be installed once and load in every session. No real session was run
 for the checklist pane.
+
+### D176: The improvement checklist without a mod
+
+New command `verinoda improve propose|decide|show|report` and four MCP tools (`improve_propose`, `improve_decide`,
+`improve_show`, `improve_report`; 50 tools in all, **full profile only**; the core menu is unchanged). For an agent with no
+mod (Codex in a terminal): the agent looks and changes nothing, `propose` stores a ranked list and shows it as text, the
+person answers in one line (`2u 3k 1c`, `+ text`, `gönder`) that `decide` parses, and only then does the agent work, on the
+work order `decide` returns; `report` records the outcomes. The list is `.verinoda/improve/<session>.json` (nothing else is
+written; the project must be scanned). The skill templates gained one bullet (two lines) each, so re-run `verinoda install` or `verinoda setup` to bring it; the test
+that wants fewer than 240 body lines (`test_skill_templates_are_complete`) already failed at 243 and 242 and now reads 245 and 244.
+No schema change.
 
 ## Upgrading from 0.3.2 (D60-D136)
 

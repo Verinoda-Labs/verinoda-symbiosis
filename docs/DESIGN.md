@@ -17193,6 +17193,56 @@ to the store and no Verinoda command is called.
 
 `claude-mods/verinoda-live/hooks/improve.test.ts`.
 
+## 149. The improvement checklist without a mod: `verinoda improve` and four MCP tools (D176, 2026-10-04)
+
+### 149.1 Why
+
+D175 gave Claude Code a pane for the list-choose-apply flow. Codex in a terminal has no mod mechanism and no pane, and the
+person who uses it asked for the same flow in Verinoda itself. The brief is `docs/IMPROVE-MODLESS.md`; this is what was built.
+
+### 149.2 Decisions
+
+- The state machine is `verinoda/improve.py`, a Python port of `claude-mods/verinoda-live/hooks/improve.ts` with the same rules
+  and messages (a list is validated and stored, decisions, first sight of seven, the report, the work order). The mod keeps its
+  own copy; the two are kept in step by the same cases in `tests/test_improve.py` and `improve.test.ts`, not by sharing code.
+- The pane is replaced by text. The list is rendered by code (`render`), the agent prints it as written, and the person
+  answers in one line that is parsed by code (`decide`), never by the model's reading: `<n>u` apply, `<n>k` keep, `<n>c` check
+  first (a possible problem no check has confirmed), `<n>0` clear, `<n>?` details, `<n>x` remove an item of their own,
+  `+ text` add one (it takes the rest of the line, so `gönder` is written before it), `more GROUP`, `gönder`/`send`, `stop`,
+  `ask`, `reset`. A line with one token it does not understand records nothing. A typed reply **sets** a decision where the pane's
+  button toggles, so the same line said twice means the same thing twice. Numbers are by group and rank and do not change when a
+  group is folded or unfolded.
+- The state is a file, `.verinoda/improve/<session>.json` (atomic write; a list nobody touched for two days is removed on the
+  next write), because the CLI is one process per call. A server process keeps one list (`mcp-<pid>`) and the CLI takes
+  `--session` (or `$VERINODA_SESSION`, else `default`): one agent session, one list. The mod's store taught why: a choice kept
+  in a file every session shares reached sessions that never asked for it.
+- The tools need a scanned project (the state lives in `.verinoda`): an unscanned folder gets the usual `not_initialised`
+  answer, and no tool but `index_update` creates project state (a test pins that).
+- **Deviation from the brief:** the four tools are in the **full profile only**, not behind `run_tool`. The core profile is
+  pinned at 17 tools and a menu size (D61) and the gateway reaches core tools only. A Codex user on the core profile reaches the
+  flow through the CLI, which the skill names first; `--profile full` serves the tools.
+- The skill templates get one bullet each ("only when the user explicitly asks for improvement options"). Codex may choose a skill
+  by itself, so the sentence says when not to.
+
+### 149.3 Measured
+
+The tests (`tests/test_improve.py`, 33: the state machine, the reply grammar, the file, the CLI, the MCP tools) and a by-hand run
+of the CLI from a proposal to a report on a folder with a `.verinoda`. **No real Codex session was run, and the model was never
+in the loop**: whether Codex prints the tool's text as written, passes the reply line unchanged, keeps to "change nothing until
+chosen", and whether each MCP call asks for approval, are not measured for any agent. The Codex version in use is not known here.
+
+### 149.4 Not done
+
+A browser page for ticking in `verinoda ui` (a local server: loopback and a token); MCP elicitation (Codex's client support is
+not known); a `PreToolUse` hook that denies edits while a list is open (it needs a Codex that runs and honours such a hook); the
+language setting for the list's labels (Turkish, like the pane); the other mod features for agents without a mod (the check after
+edits, commit review, an index kept fresh by hooks) as their own items.
+
+### 149.5 Tests
+
+`tests/test_improve.py`; `tests/test_mcp.py` (the four tools in the expected parameters and in the not-initialised check) and
+`tests/test_docs.py` (the tool count, the commands table, the module list).
+
 ## Sources
 
 - **Retrieval:**

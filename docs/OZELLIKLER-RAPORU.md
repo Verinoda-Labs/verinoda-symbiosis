@@ -1,13 +1,13 @@
 # Verinoda özellik raporu: ne işe yarar, neden eklendi
 
-Bu rapor `docs/DESIGN.md` içindeki 148 bölümden (0-147) derlendi. Her girişteki "neden eklendi" ve "durum" satırları belgede yazanlara dayanır; belgede ölçüm yoksa "ölçülmedi" denir.
+Bu rapor `docs/DESIGN.md` içindeki 150 bölümden (0-149) derlendi. Her girişteki "neden eklendi" ve "durum" satırları belgede yazanlara dayanır; belgede ölçüm yoksa "ölçülmedi" denir.
 
 ## Kısa özet
 
 - **Verinoda nedir:** Kod hakkındaki sorulara, her iddia için dosya ve satır kanıtı veren ve kanıt yoksa "bilinmiyor" diyen bir kod analiz aracı.
 - **Orijinal çekirdek (bölüm 0-12, yaklaşık 2026-09-23 / 09-26):** soruyu anlama, referansları doğru sürüme sabitleme, verimli getirme, kanıtlı ve geçersiz kılınabilir iddialar, insanın verdiği kararlar, hata ayıklama günlüğü, değişiklik incelemesi, davranış probları.
-- **Sonradan eklenenler (bölüm 13-147):** büyük bölümü 2026-09-26 ile 2026-10-01 arasında eklendi. Kaynakları şunlar: rakip araçların taranması (150 civarı araç, 112 özellik, 106'sı Verinoda'ya uydu, liste `docs/BACKLOG.md`; gönderilen madde listeden silinir, şu an 16 satır kalmış), Minecraft/JVM modlama ihtiyaçları ve ajan çalışmalarında çıkan boşluklar.
-- **Son bölüm (147):** `locate`, `coupled` ve `locate` arka plan servisi. Bunlar özellik listesinden değil, ajanın değişecek dosyaları bulmasını ölçen çalışmalardan doğdu.
+- **Sonradan eklenenler (bölüm 13-149):** büyük bölümü 2026-09-26 ile 2026-10-01 arasında eklendi. Kaynakları şunlar: rakip araçların taranması (150 civarı araç, 112 özellik, 106'sı Verinoda'ya uydu, liste `docs/BACKLOG.md`; gönderilen madde listeden silinir, şu an 16 satır kalmış), Minecraft/JVM modlama ihtiyaçları ve ajan çalışmalarında çıkan boşluklar.
+- **Son bölümler (148-149):** Claude Code modundaki iyileştirme listesi paneli ve aynısının modsuz ajanlar (terminalde Codex) için `verinoda improve` olarak yazılması. İkisi de gerçek bir oturumda denenmedi.
 
 ## Durumun dürüst özeti
 
@@ -760,3 +760,12 @@ Bu rapor `docs/DESIGN.md` içindeki 148 bölümden (0-147) derlendi. Her girişt
 - **Neden eklendi:** İki ajan çalışması, ajanın tek dosyalı görevlerde tavanda ama çok dosyalı görevlerde recall'unun çoğunu kaybettiğini gösterdi (kaçırılanlar bulunan dosyaların kardeşleri). Çevrimdışı oracle'da bu sinyallerle 13-15 dosyalık liste, kaçırılan dosyaların seL4'te 28'in 15'ini, Home Assistant'ta 15'in 12'sini kapsadı; eski co-change okuması 2 ve 0 kapsadı. Daemon: graf yükleme 3 sn (seL4) ile 30 sn (Home Assistant) arası sürdüğü için.
 - **Durum:** Bu bölümde "Measured" yok; sonuçlar bölüm dışında `benchmarks/results/agent-compare-assist-dev-2026-10-03/README.md` içinde (burada okunmadı). Not done: sıralama ağırlıkları uydurulmadı, sinyal gücüne göre sıralı; `CORE_DIRECT`'e alınmadı. Testler: `tests/test_locate.py`, `tests/test_locate_daemon.py`.
 
+### 148. The improvement checklist pane (D175, 2026-10-04)
+- **Ne işe yarar:** "Bunu daha iyi yap" gibi muğlak bir istekte Claude Code'da `/verinoda-improve` ile ajan hiçbir şeyi değiştirmeden neyin değişebileceğini üç grupta (olası sorunlar, iyileştirmeler, zevk meseleleri) panelde listeler; kişi uygula/kalsın/önce kontrol et diye işaretler, yalnızca seçilenler yapılır ve her maddenin sonucu paneli doldurur.
+- **Neden eklendi:** Tahmin eden ajan kimsenin istemediği şeyleri değiştirir, açık sorular soran ajan yorar; liste kişinin kendi isteğini tanıyabileceği somut seçenekler verir.
+- **Durum:** 33 yeni test ve `claude plugin validate` geçti; test sunucusu dışında gerçek bir oturumda çalıştırılmadı. Not done: ikinci adım (tekli seçim grupları, iç içe maddeler), ekran görüntülü döngü.
+
+### 149. The improvement checklist without a mod: `verinoda improve` and four MCP tools (D176, 2026-10-04)
+- **Ne işe yarar:** Aynı akışın modsuz ajanlar için hâli (terminalde Codex): liste kodla metne çevrilir, kişi tek satırla (`2u 3k 1c`, `+ metin`, `gönder`) cevap verir, satır kodla ayrıştırılır, yalnızca seçilenler yapılır. CLI komutu ve tam profilde dört MCP aracı var.
+- **Neden eklendi:** Codex'te mod mekanizması ve panel yok; Codex'i terminalde kullanan kişi aynı akışı istedi.
+- **Durum:** 33 test geçti; model hiç devrede olmadı ve gerçek bir Codex oturumu çalıştırılmadı (ölçülmedi). Not done: tarayıcı sayfası, düzenlemeyi engelleyen `PreToolUse` hook'u, listenin etiketlerinde dil ayarı.

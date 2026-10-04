@@ -1,6 +1,6 @@
 # The improvement checklist without a mod: Codex CLI (backlog 13.10)
 
-Status: **design, not built.** Decided 2026-10-04 with the person who uses Codex in a terminal (`codex`, the CLI; version
+Status: **built in part (D176, 2026-10-04); this file is the design it followed, with one change: the MCP tools are in the full profile only, not behind `run_tool` (D61 pins the core menu).** Decided 2026-10-04 with the person who uses Codex in a terminal (`codex`, the CLI; version
 not yet known, see the unknowns). This is the brief for whoever builds it. The mod's version of the same feature is
 `claude-mods/verinoda-live/IMPROVE-PANE.md` (built as D175, tested only against a test host); read its "rules that decide
 every open question" first: they hold here unchanged.
@@ -36,15 +36,17 @@ One new pure module, `verinoda/improve.py`, written as the state machine of `cla
 messages. Three doors into it, so that no agent needs a mod:
 
 - the CLI: `verinoda improve propose|decide|show|report` (JSON in, text out), for an agent that has a shell and no MCP;
-- MCP tools `improve_propose`, `improve_decide`, `improve_show`, `improve_report`, **behind `run_tool` and in the full
-  profile**, not in the core menu (backlog rule: the core profile stays at five tools; each listed tool is standing
-  context in every request);
+- MCP tools `improve_propose`, `improve_decide`, `improve_show`, `improve_report`, **in the full profile only** (built that
+  way: the core profile is pinned at 17 tools and a menu size, and `run_tool` reaches core tools only; a core server's user
+  has the CLI);
 - the skill, which says when and how to call them.
 
-State is **per server process**, in memory: Codex starts the MCP server per session over stdio, so one session is one list
-and two sessions in one project cannot see each other's choices. (The mod's store taught this: a choice kept in a file
-shared by every session reached sessions that never asked for it, `claude-mods/verinoda-live/AGENTS.md`, host fact 3.)
-A file (`.verinoda/improve/<session>.json`) is for step 2 (a browser page needs to read it), not for step 1.
+State is a file, `.verinoda/improve/<session>.json`, one per agent session: a server process keeps one list
+(`mcp-<pid>`), the CLI takes `--session` (or `$VERINODA_SESSION`, else `default`), so two sessions in one project cannot see each
+other's choices. (The mod's store taught this: a choice kept in a file shared by every session reached sessions that never
+asked for it, `claude-mods/verinoda-live/AGENTS.md`, host fact 3.) The CLI is one process per call, which is why the state
+is a file and not memory; a list nobody touched for two days is removed on the next write. The project must be scanned: the
+state lives in `.verinoda`, and no tool but `index_update` creates project state.
 
 ## The flow (what the person types)
 

@@ -121,6 +121,10 @@ TOOL_NAMES: tuple[str, ...] = (
     "grep_context",
     "read_context",
     "change_probe",
+    "improve_propose",
+    "improve_decide",
+    "improve_show",
+    "improve_report",
 )
 
 MAX_RESPONSE_CHARS = int(os.environ.get("VERINODA_MCP_MAX_CHARS", "12000"))
@@ -908,6 +912,44 @@ class AtlasTools:
                 return _jsonable(res)
             return {"format": "text", "text": loc.render(res, 1800, kind="coupled")}
         return self._run("coupled", go, need="none")
+
+    # -- the improvement list (docs/DESIGN.md D176): kept in the project's .verinoda/improve/, one list per server process,
+    # so two agent sessions in one project never see each other's choices
+    def _improve(self, tool: str, change):
+        from verinoda import improve as imp
+
+        def go():
+            key = f"mcp-{os.getpid()}"
+            state = imp.load(self.repo, key)
+            try:
+                new, text = change(imp, state)
+            except imp.ImproveError as exc:
+                raise ToolFailure("invalid_argument", str(exc), "fix it and call the tool again; the list is as it was") from None
+            if new is not None:
+                imp.save(self.repo, key, new)
+            return {"text": text}
+        return self._run(tool, go)
+
+    def improve_propose(self, subject: str = "", items: list[dict] | None = None) -> dict:
+        def change(imp, state):
+            new, replaced = imp.propose(state, items, subject)
+            return new, imp.propose_text(new, replaced)
+        return self._improve("improve_propose", change)
+
+    def improve_decide(self, text: str) -> dict:
+        def change(imp, state):
+            new, acts = imp.decide(state, _text(text, "text"))
+            return new, imp.decide_text(new, acts)
+        return self._improve("improve_decide", change)
+
+    def improve_show(self) -> dict:
+        return self._improve("improve_show", lambda imp, state: (None, imp.render(state)))
+
+    def improve_report(self, outcomes: list[dict], extra_changes: list[str] | None = None) -> dict:
+        def change(imp, state):
+            new, answer = imp.report(state, outcomes, extra_changes)
+            return new, answer + "\n\n" + imp.render(new)
+        return self._improve("improve_report", change)
 
     def _stat_key(self, rel: str) -> tuple | None:
         try:
@@ -2250,6 +2292,8 @@ reference_id) inspects one at its pin; reference_compare compares a mechanism.
 - read_context: what the Read/Edit hook adds (decision records, notes and rules about the file).
 - list_projects / index_status: the projects served; an index's state and the files changed since it.
 - group_view: a group of served projects (`verinoda group`): calls from one into another, a path across them.
+- improve_propose / improve_decide / improve_show / improve_report: only when the user asks for improvement options
+  (`$verinoda improve`): a list they choose from; change nothing until they have chosen; show the list as written.
 - change_probe: after editing a Python function, its base and working-tree versions on generated inputs. A
   difference is a behaviour change, not a bug; say "no difference found in N inputs", never "verified"; a refusal,
   inconclusive or incomplete is not a pass."""
@@ -2539,6 +2583,32 @@ DESCRIPTIONS: dict[str, str] = {
         "hunks ranked by the failure; trace=true compares observed calls; prepare=true only writes the copy), "
         "bisect (the first failing commit between good and bad, in throw-away copies), rerun (pass rate over "
         "times runs), observe (one traced run: which failing tests reached each edited function)."),
+    "improve_propose": (
+        "Show the user a list of what could be changed, so that they choose. Call it only when the user asked for "
+        "improvement options or a review list (`$verinoda improve`), never on your own initiative. Before calling, "
+        "look at the code in question and change nothing. Rank the items, the most worth doing first, and do not pad "
+        "the list. Each item is one change the user can say yes or no to. group: problem = a possible bug, "
+        "inconsistency or unexpected behaviour (give evidence, the file:line you read); improvement = usability, "
+        "readability, performance or upkeep; taste = look, tone, density or layout, a preference and not a defect "
+        "(seen=true only if you judged it from a rendered view). title says the change in one concrete line; "
+        "observation is what is there now; why it may matter; change is exactly what you would do and what stays; "
+        "cost what it costs or risks. The answer is the list as text: show it to the user exactly as written, then "
+        "stop and wait for their reply line."),
+    "improve_decide": (
+        "Record the user's reply to the improvement list. Pass the line exactly as the user wrote it (for example "
+        "'2u 3k 1c + rename the flag' or 'gönder'): it is parsed here, never reword it. Answers with the list as it "
+        "now stands, to show to the user; when the line sends the selection, answers with the work order: do exactly "
+        "that and nothing else, then call improve_report."),
+    "improve_show": (
+        "The improvement list as the user last saw it (marks, results, what is folded), or that there is none: use "
+        "it to show the list again."),
+    "improve_report": (
+        "Report what happened to each item the user sent, once you are done or cannot go on. One outcome per item id "
+        "you were given. For an item to apply: applied (done as described), partial (say what is missing) or failed "
+        "(say why). For an item to check first: confirmed (the problem is real; put the fix you propose in change "
+        "and do not apply it) or not_confirmed (you looked and found nothing that needs a change). note is one or two "
+        "sentences the user reads; evidence is what shows it: the check you ran and its result, a file:line. List "
+        "under extra_changes every change you made that was not on the list."),
     "change_probe": (
         "Probe one changed Python function (symbol 'path.py::name' or 'path.py::Class.method'; or changed=true for "
         "every function changed against base): inputs derived from its annotations, call-site literals, boundaries "
@@ -2555,7 +2625,7 @@ DESCRIPTIONS: dict[str, str] = {
         "processes or change global state (allow_side_effects is the user's decision). Never edits code."),
 }
 
-_READ_ONLY = {"project_query", "locate", "coupled", "node_inspect", "relation_trace", "run_when", "history_search", "map_view",
+_READ_ONLY = {"project_query", "locate", "coupled", "improve_show", "node_inspect", "relation_trace", "run_when", "history_search", "map_view",
               "claim_inspect", "claim_list", "evidence_inspect", "question_plan_draft", "lexicon_show", "resolve_call",
               "code_check", "api_members", "debug_status", "grep_context", "dependency_ask", "read_context", "tq",
               "list_projects", "index_status", "group_view"}
@@ -3018,6 +3088,33 @@ def build_server(repo: Path | str | None, tools: AtlasTools | None = None, *, pr
                                                            "the configured experiment timeout).")] = None,
     ) -> dict[str, Any]:
         return emit(t.runtime_observe(test_ids=test_ids, symbols=symbols, terms=terms, timeout=timeout))
+
+    @register("improve_propose")
+    def improve_propose(
+        subject: Annotated[str, Field(description="What was looked at, in a few words: a file, a screen, a module.")],
+        items: Annotated[list[dict[str, Any]], Field(description="1 to 30 items, ranked: {id, group: problem|improvement|taste, "
+                                                                 "title, observation, why, change, cost?, evidence?: [file:line], "
+                                                                 "seen?}.")],
+    ) -> dict[str, Any]:
+        return emit(t.improve_propose(subject, items))
+
+    @register("improve_decide")
+    def improve_decide(
+        text: Annotated[str, Field(description="The user's reply line, exactly as written.")],
+    ) -> dict[str, Any]:
+        return emit(t.improve_decide(text))
+
+    @register("improve_show")
+    def improve_show() -> dict[str, Any]:
+        return emit(t.improve_show())
+
+    @register("improve_report")
+    def improve_report(
+        outcomes: Annotated[list[dict[str, Any]], Field(description="One per item sent: {id, status: applied|partial|failed|"
+                                                                    "confirmed|not_confirmed, note, change?, evidence?}.")],
+        extra_changes: Annotated[list[str] | None, Field(description="Every change made that was not on the list.")] = None,
+    ) -> dict[str, Any]:
+        return emit(t.improve_report(outcomes, extra_changes))
 
     @register("change_probe")
     def change_probe(

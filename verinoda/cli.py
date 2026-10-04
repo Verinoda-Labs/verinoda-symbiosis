@@ -1429,6 +1429,52 @@ def cmd_coupled(args) -> int:
     return 0
 
 
+def cmd_improve(args) -> int:
+    """The improvement checklist for an agent that has a shell and no mod (docs/DESIGN.md D176). The list lives in
+    ``.verinoda/improve/<session>.json``; each call is one process, so the state is a file."""
+    from verinoda import improve as imp
+    from verinoda.paths import atlas_dir
+
+    repo = _repo(args)
+    if not atlas_dir(repo).is_dir():
+        raise SystemExit(f"error: {repo} has no .verinoda yet - run `verinoda setup {repo}` (or `verinoda scan`) first")
+    key = args.session or os.environ.get("VERINODA_SESSION") or "default"
+
+    def read_json(path: str | None):
+        raw = sys.stdin.read() if path in (None, "-") else Path(path).read_text(encoding="utf-8")
+        try:
+            return json.loads(raw)
+        except ValueError as exc:
+            raise SystemExit(f"error: the JSON could not be read: {exc}") from None
+
+    state = imp.load(repo, key)
+    try:
+        if args.improve_cmd == "propose":
+            data = read_json(args.file)
+            items = data.get("items") if isinstance(data, dict) else data
+            subject = args.subject or (data.get("subject") if isinstance(data, dict) else "") or ""
+            new, replaced = imp.propose(state, items, subject)
+            text = imp.propose_text(new, replaced)
+        elif args.improve_cmd == "decide":
+            new, acts = imp.decide(state, " ".join(args.reply))
+            text = imp.decide_text(new, acts)
+        elif args.improve_cmd == "report":
+            data = read_json(args.file)
+            data = data if isinstance(data, dict) else {"outcomes": data}
+            new, answer = imp.report(state, data.get("outcomes"), data.get("extra_changes"))
+            text = answer + "\n\n" + imp.render(new)
+        else:
+            new, text = None, imp.render(state)
+    except imp.ImproveError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    if new is not None:
+        imp.save(repo, key, new)
+    final = new if new is not None else state
+    _write(_dump({"phase": final["phase"], "session": imp.session_key(key), "text": text}) if args.json else text)
+    return 0
+
+
 def cmd_diagram(args) -> int:
     from verinoda import diagrams, freshness, index
 
@@ -5114,6 +5160,21 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--max-files", type=int, default=8, help="files listed at most (default 8)")
     sp.add_argument("--no-history", action="store_true", help="do not read the git history")
     sp.add_argument("--no-daemon", action="store_true", help="compute the answer here even when a daemon runs (by default it is asked)")
+    sp = sub.add_parser("improve", help="a list of what could change that you choose from (apply, keep, check first); nothing "
+                                         "changes until you have chosen, for an agent with no mod")
+    isub = sp.add_subparsers(dest="improve_cmd", required=True)
+    for name, help_ in (("propose", "store a ranked list from JSON (a list of items, or {subject, items}) and show it"),
+                        ("decide", "record the reply line (`2u 3k 1c + text`, `gönder`) and show the list or the work order"),
+                        ("show", "show the list as it stands"),
+                        ("report", "record the outcomes from JSON ({outcomes, extra_changes}) and show the list")):
+        c = add(name, cmd_improve, help_, parent=isub)
+        c.add_argument("--session", help="the list's name: one per agent session (default $VERINODA_SESSION, else 'default')")
+        if name in ("propose", "report"):
+            c.add_argument("--file", help="the JSON file (default: standard input)")
+        if name == "propose":
+            c.add_argument("--subject", help="what was looked at (default: the JSON's subject)")
+        if name == "decide":
+            c.add_argument("reply", nargs="+", metavar="WORD", help="the reply line, as the user wrote it")
     sp = add("trace", cmd_trace, "directed paths between two symbols/files with edge locations")
     sp.add_argument("source")
     sp.add_argument("target")
